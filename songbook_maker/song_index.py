@@ -141,13 +141,13 @@ def get_audio_src(song_name, voice):
 
 def get_musescorefile(song_name):
     """Return relative musescore file for song."""
-    return f"{SONG_INDEX}{song_name}/{song_name}.mscz"
+    return f"{SONG_INDEX}{song_name}/{song_name}.mscx"
 
 
 def get_melody_musescorefile(song_name):
     """Return melody musescore file.
 
-    Usually it's the same as the song_name.mscz, but for shared melodies
+    Usually it's the same as the song_name.mscx, but for shared melodies
     it points to the source musescore file.
     """
     melody = get_melody(song_name)
@@ -214,7 +214,7 @@ def write_song_to_html(file, song):
     )
     rond_pdf = f"/songs/{name}/{number}_{name}_rond.pdf"
     shapenote_pdf = f"/songs/{name}/{number}_{name}.pdf"
-    source_mscz = f"/songs/{name}/{name}.mscz"
+    source_mscx = f"/songs/{name}/{name}.mscx"
     file.write(
         f"    <td><a href='{rond_pdf}' "
         "target='_blank'><img src='/images/roundnote.png' class='music_open'></a></td>\n"
@@ -224,14 +224,14 @@ def write_song_to_html(file, song):
         "target='_blank'><img src='/images/shapenote.png' class='music_open'></a></td>\n"
     )
     file.write(
-        f"    <td><a href='{source_mscz}' "
+        f"    <td><a href='{source_mscx}' "
         "target='_blank'><img src='/images/mscore_dl.png' class='music_open'></a></td>\n"
     )
     file.write("  </tr>\n")
 
 
 def uptodate_from_source(product_file, source_file):
-    """Check if given product file, produced from source (.mscz) is up to date.
+    """Check if given product file, produced from source (.mscx) is up to date.
 
     Returns whether the productfile exists and is newer than source_file.
     """

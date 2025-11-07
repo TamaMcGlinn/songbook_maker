@@ -13,7 +13,7 @@ def find_musescore_files(songs_path):
     songs = []
     for root, _, files in os.walk(songs_path):
         for file in files:
-            if file.endswith(".mscz"):
+            if file.endswith(".mscx"):
                 songs.append(os.path.join(root, file))
     return songs
 
@@ -203,6 +203,11 @@ def export_lyrics(musescore_file):
     lyrics = extract_lyrics(musescore_file)
     with open(lyrics_filename, "w", encoding="utf8") as lyrics_file:
         lyrics_file.write(lyrics)
+
+
+def export_uncompressed(musescore_file):
+    """Export from musescore to file adjacent with uncompressed musescore filename."""
+    export(musescore_file, ".mscx", True, False)
 
 
 if __name__ == "__main__":
