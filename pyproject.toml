@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "songbook_maker"
+version = "1.0"
+authors = [
+  { name="Tama McGlinn", email="tama@anabaptist.nl" },
+]
+description = "Tools for indexing MuseScore files and creating songbooks"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
+[project.urls]
+Homepage = "anabaptist.nl"
+Issues = "https://github.com/TamaMcGlinn/song_index"
