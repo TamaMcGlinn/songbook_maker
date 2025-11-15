@@ -2,9 +2,6 @@
 
 import os
 import sys
-import xml.etree.ElementTree as ET
-
-from songbook_maker.export_songs import export_uncompressed, replace_extension
 
 search_dir = sys.argv[1] if len(sys.argv) > 1 else "."
 
