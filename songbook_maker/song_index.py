@@ -103,7 +103,7 @@ def link_master_file(file, index_dir):
 def read_song_collection_properties():
     """Read shared_melodies.txt to a dictionary for lookup.
 
-    The first song name on each line is the melody song, others
+    The first song on each line is the melody song, others
     are stored in the dictionary and reference the melody song.
     """
     global SHARED_MELODIES
@@ -123,42 +123,51 @@ def read_song_collection_properties():
                 SHARED_MELODIES[duplicate] = first
 
 
-def get_melody(song_name):
-    """Return melody song name.
+def get_song_id(song):
+    """Get path in static/ to song, it's the {language}/{name}."""
+    return f"{song['language']}/{song['name']}"
 
-    Usually it just returns song_name unchanged, but for shared melodies
-    it returns the source song name.
+
+def get_melody(song_id):
+    """Return melody song id, which is language/song_name.
+
+    Usually it just returns song_id unchanged, but for shared melodies
+    it returns the source song id.
     """
     # change the src if song name in SHARED_MELODIES
-    return SHARED_MELODIES.get(song_name, song_name)
+    return SHARED_MELODIES.get(song_id, song_id)
 
 
-def get_audio_src(song_name, voice):
+def get_audio_src(song_id, voice):
     """Return relative mp3 file path for given song and voice."""
-    melody = get_melody(song_name)
-    return f"/songs/{melody}/{melody}-{voice}.mp3"
+    melody = get_melody(song_id)
+    _, song_name = song_id.split("/")
+    return f"/songs/{melody}/{song_name}-{voice}.mp3"
 
 
-def get_musescorefile(song_name):
+def get_musescorefile(song_id):
     """Return relative musescore file for song."""
-    return f"{SONG_INDEX}{song_name}/{song_name}.mscx"
+    _, song_name = song_id.split("/")
+    return f"{SONG_INDEX}{song_id}/{song_name}.mscx"
 
 
-def get_melody_musescorefile(song_name):
+def get_melody_musescorefile(song):
     """Return melody musescore file.
 
     Usually it's the same as the song_name.mscx, but for shared melodies
     it points to the source musescore file.
     """
-    melody = get_melody(song_name)
+    song_id = get_song_id(song)
+    melody = get_melody(song_id)
     return get_musescorefile(melody)
 
 
 def write_audio(file, song, voice):
     """Write html for audio element pointing to specific voice of song to file."""
-    song_name = song["name"]
-    file.write(f'<audio id="{song_name}-{voice}" loop=true>\n')
-    audio_src = get_audio_src(song_name, voice)
+    song_id = get_song_id(song)
+    song_audio_id = song_id.replace("/", "_")  # because HTML id cannot contain /
+    file.write(f'<audio id="{song_audio_id}-{voice}" loop=true>\n')
+    audio_src = get_audio_src(song_id, voice)
     file.write(f'  <source src="{audio_src}" type="audio/mpeg">\n')
     file.write("  Your browser does not support the audio element.\n")
     file.write("</audio>\n")
@@ -189,10 +198,12 @@ def prettify_and_shorten_name(song_name):
 def write_song_to_html(file, song):
     """Write all needed elements for the given song to html file."""
     name = song["name"]
+    song_id = get_song_id(song)
+    html_song_id = song_id.replace("/", "_")
     number = song["number"]
     file.write("  <tr>\n")
     file.write(
-        f'    <td><button onclick="resetSong({name})" type="button"'
+        f'    <td><button onclick="resetSong({html_song_id})" type="button"'
         'class="mediabutton">⏮</button></td>\n'
     )
     file.write("    <td>\n")
@@ -202,19 +213,19 @@ def write_song_to_html(file, song):
     file.write("        </td></tr>\n")
     file.write("        <tr><td>\n")
     file.write(
-        f'          <progress id="pgb_{name}" value="0" max="100" '
+        f'          <progress id="pgb_{html_song_id}" value="0" max="100" '
         'class="music_progress"></progress>\n'
     )
     file.write("        </td></tr>\n")
     file.write("      </table>\n")
     file.write("    </td>\n")
     file.write(
-        f'    <td><button onclick="playPause({name})"'
+        f'    <td><button onclick="playPause({html_song_id})"'
         'type="button" class="mediabutton">⏯ </button></td>\n'
     )
-    rond_pdf = f"/songs/{name}/{number}_{name}_rond.pdf"
-    shapenote_pdf = f"/songs/{name}/{number}_{name}.pdf"
-    source_mscx = f"/songs/{name}/{name}.mscx"
+    rond_pdf = f"/songs/{song_id}/{number}_{name}_rond.pdf"
+    shapenote_pdf = f"/songs/{song_id}/{number}_{name}.pdf"
+    source_mscx = f"/songs/{song_id}/{name}.mscx"
     file.write(
         f"    <td><a href='{rond_pdf}' "
         "target='_blank'><img src='/images/roundnote.png' class='music_open'></a></td>\n"
@@ -248,7 +259,8 @@ def uptodate_from_source(product_file, source_file):
 def all_voices_uptodate(song, musescore_file):
     """Return whether all voices audio files are present and up to date."""
     for voice in VOICES:
-        audio_src = get_audio_src(song["name"], voice)
+        song_id = get_melody(get_song_id(song))
+        audio_src = get_audio_src(song_id, voice)
         file_path = f"./static{audio_src}"
         if not uptodate_from_source(file_path, musescore_file):
             return False
@@ -268,12 +280,11 @@ def lyrics_file_uptodate(musescore_file):
 def export_missing_audio(s):
     """Generate audio where missing."""
     for song in s:
-        name = song["name"]
-        musescore_file = get_musescorefile(name)
+        musescore_file = get_musescorefile(get_song_id(song))
         if not lyrics_file_uptodate(musescore_file):
             print(f"Extracting lyrics from {musescore_file}")
             export_lyrics(musescore_file)
-        melody_musescore_file = get_melody_musescorefile(name)
+        melody_musescore_file = get_melody_musescorefile(song)
         if not all_voices_uptodate(song, melody_musescore_file):
             print(f"Exporting audio from {melody_musescore_file}")
             export_audio(melody_musescore_file)
@@ -293,8 +304,8 @@ def remove_leading_numbers_and_spaces(lyrics: str):
 
 def get_first_line_of_lyrics(song):
     """Get first line of lyrics for the song."""
-    song_name = song["name"]
-    musescore_file = get_musescorefile(song_name)
+    song_id = get_song_id(song)
+    musescore_file = get_musescorefile(song_id)
     lyrics = remove_leading_numbers_and_spaces(get_lyrics(musescore_file))
     return get_first_line_of(lyrics)
 
@@ -380,7 +391,9 @@ def generate_index(songs, index_path, voorblad_dir=None):
         file.write(PREAMBLE)
         songs = sorted(songs, key=lambda x: int(re.search(r"\d+", x["number"]).group()))
         for song in songs:
-            file.write(f"const {song['name']} = {{name: \"{song['name']}\"}}\n")
+            file.write(
+                f"const {song['language']}_{song['name']} = {{name: \"{song['name']}\"}}\n"
+            )
         song_names = ",".join([s["name"] for s in songs])
         file.write(f"const songs = [{song_names}]")
         file.write(END_HEADER)
@@ -399,10 +412,11 @@ def number_songs(s):
     """Generate numbered pdfs where they are missing or not up to date."""
     for song in s:
         name = song["name"]
+        song_id = get_song_id(song)
         number = song["number"]
         for suffix in VARIANT_SUFFIXES:
-            numbered_file = f"{SONG_INDEX}{name}/{number}_{name}{suffix}.pdf"
-            unnumbered_file = f"{SONG_INDEX}{name}/{name}{suffix}.pdf"
+            numbered_file = f"{SONG_INDEX}{song_id}/{number}_{name}{suffix}.pdf"
+            unnumbered_file = f"{SONG_INDEX}{song_id}/{name}{suffix}.pdf"
             if not uptodate_from_source(numbered_file, unnumbered_file):
                 if os.path.isfile(unnumbered_file):
                     print(f"Generating {numbered_file}...\n")
@@ -466,7 +480,8 @@ def create_master_pdf(s, index_dir, voorblad_dir, suffix):
     for song in s:
         name = song["name"]
         number = song["number"]
-        parts.append(f"{SONG_INDEX}{name}/{number}_{name}{suffix}.pdf")
+        song_id = get_song_id(song)
+        parts.append(f"{SONG_INDEX}{song_id}/{number}_{name}{suffix}.pdf")
     parts.append("temp_index_page.pdf")
     master_file = os.path.join(index_dir, f"all{suffix}.pdf")
     subprocess.check_output(["pdftk", *parts, "cat", "output", master_file])
