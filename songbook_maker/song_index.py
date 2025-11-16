@@ -377,11 +377,19 @@ def get_index_of_titles_and_first_lines(songlist):
     return index
 
 
-def generate_index(songs, index_path, voorblad_dir=None):
+def apply_language(songs, new_language):
+    """Set language for all songs."""
+    for s in songs:
+        s["language"] = new_language
+
+
+def generate_index(songs, index_path, language=None, voorblad_dir=None):
     """Generate index html and pdf.
 
     also ensure no generated files are missing.
     """
+    if language:
+        apply_language(songs, language)
     read_song_collection_properties()
     number_songs(songs)
     export_missing_audio(songs)
