@@ -299,7 +299,7 @@ def get_lyrics(musescore_file):
 
 def remove_leading_numbers_and_spaces(lyrics: str):
     """Remove leading numbers and spaces."""
-    return lyrics.lstrip("1234567890 ").lstrip()
+    return lyrics.lstrip("1234567890. ").lstrip()
 
 
 def get_first_line_of_lyrics(song):
