@@ -14,6 +14,7 @@ import unicodedata
 from collections import namedtuple
 
 from songbook_maker.export_songs import (export_audio, export_lyrics,
+                                         export_pdf, export_pdf_round,
                                          replace_extension)
 
 # directory containing all songs; TODO pass this in instead
@@ -128,6 +129,12 @@ def get_song_id(song):
     return f"{song['language']}/{song['name']}"
 
 
+def get_song_id_for_html(song):
+    """Get {language}_{name} for song, for use as id inside HTML."""
+    song_id = get_song_id(song)
+    return song_id.replace("/", "_")  # because HTML id cannot contain /
+
+
 def get_melody(song_id):
     """Return melody song id, which is language/song_name.
 
@@ -165,7 +172,7 @@ def get_melody_musescorefile(song):
 def write_audio(file, song, voice):
     """Write html for audio element pointing to specific voice of song to file."""
     song_id = get_song_id(song)
-    song_audio_id = song_id.replace("/", "_")  # because HTML id cannot contain /
+    song_audio_id = get_song_id_for_html(song)
     file.write(f'<audio id="{song_audio_id}-{voice}" loop=true>\n')
     audio_src = get_audio_src(song_id, voice)
     file.write(f'  <source src="{audio_src}" type="audio/mpeg">\n')
@@ -267,6 +274,18 @@ def all_voices_uptodate(song, musescore_file):
     return True
 
 
+def unnumbered_rond_pdf_file_uptodate(musescore_file):
+    """Return true iff round-note unnumbered pdf up to date."""
+    pdf_filename = replace_extension(musescore_file, "_rond.pdf")
+    return uptodate_from_source(pdf_filename, musescore_file)
+
+
+def unnumbered_pdf_file_uptodate(musescore_file):
+    """Return true iff unnumbered pdf up to date."""
+    pdf_filename = replace_extension(musescore_file, ".pdf")
+    return uptodate_from_source(pdf_filename, musescore_file)
+
+
 def lyrics_file_uptodate(musescore_file):
     """Return true iff lyrics up to date.
 
@@ -275,6 +294,18 @@ def lyrics_file_uptodate(musescore_file):
     """
     lyrics_filename = replace_extension(musescore_file, ".txt")
     return uptodate_from_source(lyrics_filename, musescore_file)
+
+
+def export_missing_pdfs(s):
+    """Generate pdfs where missing."""
+    for song in s:
+        musescore_file = get_musescorefile(get_song_id(song))
+        if not unnumbered_pdf_file_uptodate(musescore_file):
+            print(f"Generating pdf from {musescore_file}")
+            export_pdf(musescore_file)
+        if not unnumbered_rond_pdf_file_uptodate(musescore_file):
+            print(f"Generating roundnote pdf from {musescore_file}")
+            export_pdf_round(musescore_file)
 
 
 def export_missing_audio(s):
@@ -391,6 +422,7 @@ def generate_index(songs, index_path, language=None, voorblad_dir=None):
     if language:
         apply_language(songs, language)
     read_song_collection_properties()
+    export_missing_pdfs(songs)
     number_songs(songs)
     export_missing_audio(songs)
     index_dir, _ = os.path.split(index_path)
@@ -399,11 +431,10 @@ def generate_index(songs, index_path, language=None, voorblad_dir=None):
         file.write(PREAMBLE)
         songs = sorted(songs, key=lambda x: int(re.search(r"\d+", x["number"]).group()))
         for song in songs:
-            file.write(
-                f"const {song['language']}_{song['name']} = {{name: \"{song['name']}\"}}\n"
-            )
-        song_names = ",".join([s["name"] for s in songs])
-        file.write(f"const songs = [{song_names}]")
+            song_id = get_song_id_for_html(song)
+            file.write(f'const {song_id} = {{name: "{song_id}"}}\n')
+        song_ids = ",".join([get_song_id_for_html(s) for s in songs])
+        file.write(f"const songs = [{song_ids}]")
         file.write(END_HEADER)
         for song in songs:
             for voice in VOICES:

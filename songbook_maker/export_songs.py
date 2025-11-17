@@ -173,6 +173,27 @@ def export(musescore_file, extension, master, parts):
     os.remove("job.json")
 
 
+def export_pdf(musescore_file):
+    """Write pdf from musescore to file adjacent named .pdf"""
+    export(musescore_file, ".pdf", True, False)
+
+
+def export_pdf_round(musescore_file):
+    """Write round note pdf from musescore, removing noteheadScheme first."""
+    round_file = replace_extension(musescore_file, "_rond.mscx")
+    # remove lines like:
+    # <noteheadScheme>shape-7-aikin</noteheadScheme>
+    pattern = re.compile(r"<noteheadScheme>shape-7-aikin</noteheadScheme>")
+    with open(musescore_file, "r", encoding="utf8") as input_file, open(
+        round_file, "w", encoding="utf8"
+    ) as output_file:
+        for line in input_file:
+            if not pattern.search(line):
+                output_file.write(line)
+    export(round_file, ".pdf", True, False)
+    os.remove(round_file)
+
+
 def export_audio(musescore_file):
     """Create audio files, trimmed to be the same length."""
     export(musescore_file, ".mp3", False, True)
