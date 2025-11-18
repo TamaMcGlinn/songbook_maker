@@ -183,7 +183,8 @@ def export_pdf_round(musescore_file):
     round_file = replace_extension(musescore_file, "_rond.mscx")
     # remove lines like:
     # <noteheadScheme>shape-7-aikin</noteheadScheme>
-    pattern = re.compile(r"<noteheadScheme>shape-7-aikin</noteheadScheme>")
+    #     <headScheme>shape-7-aikin</headScheme>
+    pattern = re.compile(r"<(note)?headScheme>shape-7-aikin</(note)?headScheme>")
     with open(musescore_file, "r", encoding="utf8") as input_file, open(
         round_file, "w", encoding="utf8"
     ) as output_file:
