@@ -428,6 +428,8 @@ def generate_index(songs, index_path, language=None, frontpage_dir=None):
     number_songs(songs)
     export_missing_audio(songs)
     index_dir, _ = os.path.split(index_path)
+    if not os.path.exists(index_dir):
+        os.makedirs(index_dir)
     create_master_pdfs(songs, index_dir, frontpage_dir)
     with open(index_path, "w", encoding="utf-8") as file:
         file.write(PREAMBLE)
