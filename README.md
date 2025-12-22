@@ -5,6 +5,8 @@ sequentially. Both pdf and html output is generated, such that you can listen to
 the songs on the webpage. An optional preamble pdf can be included beforehand,
 and a final index page will list first lines and titles alphabetically.
 
+As an example, see [anabaptist.nl/songbooks](anabaptist.nl/songbooks).
+
 ## Installation
 
 ```
