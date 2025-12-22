@@ -19,5 +19,5 @@ license = "MIT"
 license-files = ["LICEN[CS]E*"]
 
 [project.urls]
-Homepage = "anabaptist.nl"
+Homepage = "https://github.com/TamaMcGlinn/songbook_maker/"
 Issues = "https://github.com/TamaMcGlinn/songbook_maker/issues"
