@@ -23,17 +23,27 @@ songs = number_sequentially(
     ]
 )
 
-generate_index(songs, INDEX_PATH, "./liedboek_voorblad/")
+generate_index(songs, INDEX_PATH, language="dutch", frontpage_dir="./liedboek_voorblad/")
 ```
 
-To number songs explicitly, write your songs definition like:
+To number songs explicitly, or combine different languages, write your songs definition like:
 
 ```
 songs = [
-    {"name": "Hear_bliuw_mie_nei", "number": "2453"},
-    {"name": "foar_de_pracht_fan_loft_en_wrald", "number": "2454"},
-    {"name": "wes_stil_en_wit", "number": "2455"},
+    {"language": "frisian", "name": "Hear_bliuw_mie_nei", "number": "5"},
+    {"language": "danish", "name": "jeg_trænger_til_din_trøst", "number": "6a"},
+    {"language": "dutch", "name": "groot_is_Uw_trouw", "number": "2455"},
 ]
 
-generate_index(songs, INDEX_PATH) # example without pdf preamble
+generate_index(songs, INDEX_PATH)
 ```
+
+frontpage_dir is an optional dir put before the song pdfs containing pdf's ed1.pdf ed2.pdf etc.
+The one with the highest number is picked. If you also have ed2_rond.pdf, then the roundnote
+variant also gets a preamble. You are recommended to keep a source file (e.g. LibreOffice) there
+and whenever you plan to distribute / print your songbook, increment the version number / date
+and re-export to edX.pdf and edX_rond.pdf 
+
+## TODO
+
+- Rename all occurences of rond to round. I just started out only supporting Dutch so some of the code may be commented / named in Dutch. The code should all be in English.

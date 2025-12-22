@@ -416,7 +416,7 @@ def apply_language(songs, new_language):
         s["language"] = new_language
 
 
-def generate_index(songs, index_path, language=None, voorblad_dir=None):
+def generate_index(songs, index_path, language=None, frontpage_dir=None):
     """Generate index html and pdf.
 
     also ensure no generated files are missing.
@@ -428,7 +428,7 @@ def generate_index(songs, index_path, language=None, voorblad_dir=None):
     number_songs(songs)
     export_missing_audio(songs)
     index_dir, _ = os.path.split(index_path)
-    create_master_pdfs(songs, index_dir, voorblad_dir)
+    create_master_pdfs(songs, index_dir, frontpage_dir)
     with open(index_path, "w", encoding="utf-8") as file:
         file.write(PREAMBLE)
         songs = sorted(songs, key=lambda x: int(re.search(r"\d+", x["number"]).group()))
@@ -479,11 +479,11 @@ def number_songs(s):
                     )
 
 
-def highest_version_in(voorblad_dir, variant):
+def highest_version_in(frontpage_dir, variant):
     """Return the highest versioned pdf frontpage filename."""
     highest_version = None
     for i in range(1, 99):
-        edfile = os.path.join(voorblad_dir, f"ed{i}{variant}.pdf")
+        edfile = os.path.join(frontpage_dir, f"ed{i}{variant}.pdf")
         if os.path.isfile(edfile):
             highest_version = edfile
     return highest_version
@@ -502,22 +502,22 @@ def create_index_page(s):
     print("===================================")
 
 
-def create_master_pdfs(s, index_dir, voorblad_dir):
+def create_master_pdfs(s, index_dir, frontpage_dir):
     """Create both variant master pdfs."""
     create_index_page(s)
     for suffix in VARIANT_SUFFIXES:
-        create_master_pdf(s, index_dir, voorblad_dir, suffix)
+        create_master_pdf(s, index_dir, frontpage_dir, suffix)
 
 
-def create_master_pdf(s, index_dir, voorblad_dir, suffix):
+def create_master_pdf(s, index_dir, frontpage_dir, suffix):
     """Collect the songs' pdfs into an all.pdf and all_rond.pdf."""
     parts = []
-    if voorblad_dir:
-        voorblad = highest_version_in(voorblad_dir, suffix)
-        if not voorblad:
-            voorblad = highest_version_in(voorblad_dir, "")
-        if voorblad:
-            parts.append(voorblad)
+    if frontpage_dir:
+        frontpage = highest_version_in(frontpage_dir, suffix)
+        if not frontpage:
+            frontpage = highest_version_in(frontpage_dir, "")
+        if frontpage:
+            parts.append(frontpage)
     for song in s:
         name = song["name"]
         number = song["number"]
