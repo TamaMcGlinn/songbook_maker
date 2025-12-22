@@ -130,9 +130,8 @@ def get_song_id(song):
     return f"{song['language']}/{song['name']}"
 
 
-def get_song_id_for_html(song):
+def convert_song_id_for_html(song_id):
     """Get {language}_{name} for song, for use as id inside HTML."""
-    song_id = get_song_id(song)
     return song_id.replace("/", "_")  # because HTML id cannot contain /
 
 
@@ -149,7 +148,7 @@ def get_melody(song_id):
 def get_audio_src(song_id, voice):
     """Return relative mp3 file path for given song and voice."""
     melody = get_melody(song_id)
-    _, song_name = song_id.split("/")
+    _, song_name = melody.split("/")
     return f"/songs/{melody}/{song_name}-{voice}.mp3"
 
 
@@ -173,8 +172,10 @@ def get_melody_musescorefile(song):
 def write_audio(file, song, voice):
     """Write html for audio element pointing to specific voice of song to file."""
     song_id = get_song_id(song)
-    song_audio_id = get_song_id_for_html(song)
-    file.write(f'<audio id="{song_audio_id}-{voice}" loop=true>\n')
+    html_song_id = convert_song_id_for_html(song_id)
+    audio_song_id = get_melody(song_id)
+    html_audio_song_id = convert_song_id_for_html(audio_song_id)
+    file.write(f'<audio id="{html_song_id}-{voice}" loop=true>\n')
     audio_src = get_audio_src(song_id, voice)
     file.write(f'  <source src="{audio_src}" type="audio/mpeg">\n')
     file.write("  Your browser does not support the audio element.\n")
@@ -432,9 +433,9 @@ def generate_index(songs, index_path, language=None, voorblad_dir=None):
         file.write(PREAMBLE)
         songs = sorted(songs, key=lambda x: int(re.search(r"\d+", x["number"]).group()))
         for song in songs:
-            song_id = get_song_id_for_html(song)
+            song_id = convert_song_id_for_html(get_song_id(song))
             file.write(f'const {song_id} = {{name: "{song_id}"}}\n')
-        song_ids = ",".join([get_song_id_for_html(s) for s in songs])
+        song_ids = ",".join([convert_song_id_for_html(get_song_id(s)) for s in songs])
         file.write(f"const songs = [{song_ids}]")
         file.write(END_HEADER)
         for song in songs:
