@@ -59,7 +59,7 @@ SLIDERS_TABLE = """
       <th>Bass</th>
   </tr>
 </table>
-Tempo: <input type="range" min="25" max="400" step="5" class="speed_slider" orient="horizontal" value="100" onchange="speed_slider_change()" id="sld_speed" /><label id="lbl_speed" for="sld_speed">1x</label>
+Tempo: <input type="range" min="20" max="400" step="5" class="speed_slider" orient="horizontal" value="100" onchange="speed_slider_change()" id="sld_speed" /><label id="lbl_speed" for="sld_speed">1x</label>
 <button text="reset " onclick="reset_speed()">Reset</button>
 <br/>
 """
