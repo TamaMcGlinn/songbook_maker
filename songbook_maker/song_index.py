@@ -299,15 +299,22 @@ def lyrics_file_uptodate(musescore_file):
 
 
 def export_missing_pdfs(s):
-    """Generate pdfs where missing."""
+    """Generate pdfs where missing.
+
+    Returns True if some file was updated, False otherwise.
+    """
+    something_was_updated = False
     for song in s:
         musescore_file = get_musescorefile(get_song_id(song))
         if not unnumbered_pdf_file_uptodate(musescore_file):
             print(f"Generating pdf from {musescore_file}")
             export_pdf(musescore_file)
+            something_was_updated = True
         if not unnumbered_rond_pdf_file_uptodate(musescore_file):
             print(f"Generating roundnote pdf from {musescore_file}")
             export_pdf_round(musescore_file)
+            something_was_updated = True
+    return something_was_updated
 
 
 def export_missing_audio(s):
@@ -424,35 +431,44 @@ def generate_index(songs, index_path, language=None, frontpage_dir=None):
     if language:
         apply_language(songs, language)
     read_song_collection_properties()
-    export_missing_pdfs(songs)
-    number_songs(songs)
+    some_song_changed = export_missing_pdfs(songs)
+    some_song_changed |= number_songs(songs)
     export_missing_audio(songs)
     index_dir, _ = os.path.split(index_path)
     if not os.path.exists(index_dir):
         os.makedirs(index_dir)
-    create_master_pdfs(songs, index_dir, frontpage_dir)
-    with open(index_path, "w", encoding="utf-8") as file:
-        file.write(PREAMBLE)
-        songs = sorted(songs, key=lambda x: int(re.search(r"\d+", x["number"]).group()))
-        for song in songs:
-            song_id = convert_song_id_for_html(get_song_id(song))
-            file.write(f'const {song_id} = {{name: "{song_id}"}}\n')
-        song_ids = ",".join([convert_song_id_for_html(get_song_id(s)) for s in songs])
-        file.write(f"const songs = [{song_ids}]")
-        file.write(END_HEADER)
-        for song in songs:
-            for voice in VOICES:
-                write_audio(file, song, voice)
-        file.write(SLIDERS_TABLE)
-        link_master_file(file, index_dir)
-        file.write(TABLE_START)
-        for song in songs:
-            write_song_to_html(file, song)
-        file.write(POSTFIX)
+    if some_song_changed:
+        create_master_pdfs(songs, index_dir, frontpage_dir)
+        with open(index_path, "w", encoding="utf-8") as file:
+            file.write(PREAMBLE)
+            songs = sorted(
+                songs, key=lambda x: int(re.search(r"\d+", x["number"]).group())
+            )
+            for song in songs:
+                song_id = convert_song_id_for_html(get_song_id(song))
+                file.write(f'const {song_id} = {{name: "{song_id}"}}\n')
+            song_ids = ",".join(
+                [convert_song_id_for_html(get_song_id(s)) for s in songs]
+            )
+            file.write(f"const songs = [{song_ids}]")
+            file.write(END_HEADER)
+            for song in songs:
+                for voice in VOICES:
+                    write_audio(file, song, voice)
+            file.write(SLIDERS_TABLE)
+            link_master_file(file, index_dir)
+            file.write(TABLE_START)
+            for song in songs:
+                write_song_to_html(file, song)
+            file.write(POSTFIX)
 
 
 def number_songs(s):
-    """Generate numbered pdfs where they are missing or not up to date."""
+    """Generate numbered pdfs where they are missing or not up to date.
+
+    Returns True if some file was updated, False otherwise.
+    """
+    something_was_updated = False
     for song in s:
         name = song["name"]
         song_id = get_song_id(song)
@@ -479,6 +495,8 @@ def number_songs(s):
                             numbered_file,
                         ]
                     )
+                    something_was_updated = True
+    return something_was_updated
 
 
 def highest_version_in(frontpage_dir, variant):
