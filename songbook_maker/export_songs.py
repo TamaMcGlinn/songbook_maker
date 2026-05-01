@@ -5,7 +5,7 @@ import re
 import subprocess
 import sys
 
-MUSESCORE_BINARY = "/snap/bin/musescore.mscore"
+MUSESCORE_BINARY = "musescore"
 
 
 def find_musescore_files(songs_path):
@@ -185,9 +185,10 @@ def export_pdf_round(musescore_file):
     # <noteheadScheme>shape-7-aikin</noteheadScheme>
     #     <headScheme>shape-7-aikin</headScheme>
     pattern = re.compile(r"<(note)?headScheme>shape-7-aikin</(note)?headScheme>")
-    with open(musescore_file, "r", encoding="utf8") as input_file, open(
-        round_file, "w", encoding="utf8"
-    ) as output_file:
+    with (
+        open(musescore_file, "r", encoding="utf8") as input_file,
+        open(round_file, "w", encoding="utf8") as output_file,
+    ):
         for line in input_file:
             if not pattern.search(line):
                 output_file.write(line)
