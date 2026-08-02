@@ -165,8 +165,13 @@ def export(musescore_file, extension, master, parts):
         "  }"
         "]"
     )
+    export_job(job)
+
+
+def export_job(job_definition):
+    """Use MS to execute given job, specified as list of dicts with in, out keys."""
     with open("job.json", "w", encoding="utf-8") as jobfile:
-        jobfile.write(job)
+        jobfile.write(job_definition)
     subprocess.check_output(
         [MUSESCORE_BINARY, "-j", "job.json"], stderr=subprocess.DEVNULL
     )

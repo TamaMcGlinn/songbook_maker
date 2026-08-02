@@ -13,9 +13,13 @@ import subprocess
 import unicodedata
 from collections import namedtuple
 
-from songbook_maker.export_songs import (export_audio, export_lyrics,
-                                         export_pdf, export_pdf_round,
-                                         replace_extension)
+from songbook_maker.export_songs import (
+    export_audio,
+    export_lyrics,
+    export_pdf,
+    export_pdf_round,
+    replace_extension,
+)
 
 # directory containing all songs; TODO pass this in instead
 SONG_INDEX = "./static/songs/"
