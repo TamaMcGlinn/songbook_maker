@@ -9,6 +9,10 @@ As an example, see [anabaptist.nl/songbooks](https://www.anabaptist.nl/songbooks
 
 ## Installation
 
+### Pre-requisites
+
+Install [musescore4](musescore.org) and [cpdf](https://github.com/coherentgraphics/cpdf-binaries/tags), and then:
+
 ```
 python3 -m pip install "songbook_maker"
 ```
