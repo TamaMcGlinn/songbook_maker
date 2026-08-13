@@ -10,16 +10,13 @@ import bisect
 import os
 import re
 import subprocess
+import sys
 import unicodedata
 from collections import namedtuple
 
-from songbook_maker.export_songs import (
-    export_audio,
-    export_lyrics,
-    export_pdf,
-    export_pdf_round,
-    replace_extension,
-)
+from songbook_maker.export_songs import (export_audio, export_lyrics,
+                                         export_pdf, export_pdf_round,
+                                         replace_extension)
 
 # directory containing all songs; TODO pass this in instead
 SONG_INDEX = "./static/songs/"
@@ -441,7 +438,10 @@ def generate_index(songs, index_path, language=None, frontpage_dir=None):
     index_dir, _ = os.path.split(index_path)
     if not os.path.exists(index_dir):
         os.makedirs(index_dir)
-    if some_song_changed:
+    master_file = os.path.join(index_dir, f"all.pdf") # Note; ignoring all_round.pdf
+    songbook_definition_script = sys.argv[0]
+    songbook_definition_changed = not uptodate_from_source(master_file, songbook_definition_script)
+    if some_song_changed or songbook_definition_changed:
         create_master_pdfs(songs, index_dir, frontpage_dir)
         with open(index_path, "w", encoding="utf-8") as file:
             file.write(PREAMBLE)
