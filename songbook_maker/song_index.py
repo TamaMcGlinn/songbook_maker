@@ -13,6 +13,7 @@ import subprocess
 import sys
 import unicodedata
 from collections import namedtuple
+from enum import Enum
 from itertools import zip_longest
 
 import requests
@@ -421,7 +422,11 @@ def replace_nonascii(text):
     return ascii_only
 
 
-IndexEntry = namedtuple("IndexEntry", ("entry", "number"))
+class IndexEntryType(Enum):
+    TITLE = 1
+    FIRST_LINE = 2
+
+IndexEntry = namedtuple("IndexEntry", ("entry", "number", "type"))
 
 
 def sanitize_for_comparison(text):
@@ -442,7 +447,7 @@ def get_index_of_titles_and_first_lines(songlist):
     for song in songlist:
         prettified_name = prettify_name(song["name"])
         song_number = song["number"]
-        entry = IndexEntry(prettified_name, song_number)
+        entry = IndexEntry(prettified_name, song_number, IndexEntryType.TITLE)
         bisect.insort(index, entry, key=lambda x: sanitize_for_comparison(x.entry))
         first_line = get_first_line_of_lyrics(song)
         # if the first line is basically just the title (barring capitalization & punctuation),
@@ -453,7 +458,7 @@ def get_index_of_titles_and_first_lines(songlist):
         comparing_first_line = sanitize_for_comparison(first_line)
         comparing_title = sanitize_for_comparison(prettified_name)
         if not comparing_first_line.startswith(comparing_title):
-            line_entry = IndexEntry(first_line, song_number)
+            line_entry = IndexEntry(first_line, song_number, IndexEntryType.FIRST_LINE)
             bisect.insort(index, line_entry, key=lambda x: x.entry)
     return index
 
@@ -488,7 +493,13 @@ def get_pdf_styles(filename):
         fontSize=10,
         leading=15,
     )
-    return pdf, title_style, body_style
+    italic_style = ParagraphStyle(
+        "ItalicPre",
+        fontName="Helvetica-Oblique",
+        fontSize=10,
+        leading=15,
+    )
+    return pdf, title_style, body_style, italic_style
 
 def generate_translations_pages(songs):
     """Generate a PDF with the original and translated lyrics for each song."""
@@ -621,18 +632,22 @@ def split_into_columns(index_lines, max_per_column):
     return [index_lines[i:i + 37] for i in range(0, len(index_lines), 37)]
 
 
-def pair_lists(left, right):
-    """Pair up lists of songs by entry and number, the right may run out before the left."""
+def pair_lists(left, right, italic_style):
+    """Pair up lists of songs by entry (with first lines italic, titles not) and number, the right may run out before the left."""
+    def f(e):
+        if e.type == IndexEntryType.FIRST_LINE:
+            return Preformatted(e.entry, italic_style)
+        return e.entry
     return [
-            [l.entry, l.number, r.entry, r.number] if r is not None else [l.entry, l.number, "", ""]
-            for l,r  in zip_longest(left, right)
+           [f(l), l.number, f(r), r.number] if r is not None else [f(l), l.number, "", ""]
+           for l,r  in zip_longest(left, right)
     ]
 
 
 def create_index_page(s):
     """Create index pdf with song titles and first lines."""
     index_lines = get_index_of_titles_and_first_lines(s)
-    pdf, _, _ = get_pdf_styles("temp_index_page.pdf")
+    pdf, _, _, italic_style = get_pdf_styles("temp_index_page.pdf")
     contents = []
     columns = split_into_columns(index_lines, 37)
     print("===INDEX OF TITLES AND 1ST LINES===")
@@ -642,7 +657,7 @@ def create_index_page(s):
     for i in range(0, len(columns), 2):
         left_column = columns[i]
         right_column = columns[i + 1] if i + 1 < len(columns) else []
-        table_entries = pair_lists(left_column, right_column)
+        table_entries = pair_lists(left_column, right_column, italic_style)
         table = Table(
             table_entries,
             colWidths=[180, 30, 180, 30],
