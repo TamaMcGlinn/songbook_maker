@@ -13,13 +13,15 @@ import subprocess
 import sys
 import unicodedata
 from collections import namedtuple
+from itertools import zip_longest
 
 import requests
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import (CondPageBreak, PageBreak, Paragraph,
-                                Preformatted, SimpleDocTemplate, Spacer)
+                                Preformatted, SimpleDocTemplate, Spacer, Table,
+                                TableStyle)
 from songbook_maker.export_songs import (export_audio, export_lyrics,
                                          export_pdf, export_pdf_round,
                                          replace_extension)
@@ -462,36 +464,37 @@ def apply_language(songs, new_language):
         s["language"] = new_language
 
 
-def generate_translations_pages(songs):
-    """Generate a PDF with the original and translated lyrics for each song."""
+def get_pdf_styles(filename):
+    """Get a pdf template and styles for title and body."""
     pdf = SimpleDocTemplate(
-        "translations.pdf",
+        filename,
         pagesize=letter,
         rightMargin=50,
         leftMargin=50,
         topMargin=50,
         bottomMargin=50,
     )
-
     styles = getSampleStyleSheet()
-
     title_style = ParagraphStyle(
         "SongTitle",
         parent=styles["Heading1"],
         alignment=TA_CENTER,
         spaceAfter=20,
     )
-
-    lyrics_style = ParagraphStyle(
+    body_style = ParagraphStyle(
         "Lyrics",
         parent=styles["BodyText"],
         fontName="Helvetica",
-        fontSize=11,
+        fontSize=10,
         leading=15,
     )
+    return pdf, title_style, body_style
+
+def generate_translations_pages(songs):
+    """Generate a PDF with the original and translated lyrics for each song."""
+    pdf, title_style, body_style = get_pdf_styles("temp_lyrics_translations.pdf")
 
     contents = []
-
     for song in songs:
         name = song["name"]
         prettified_name = prettify_name(name)
@@ -502,11 +505,10 @@ def generate_translations_pages(songs):
 
         with open(lyrics_file, "r", encoding="utf-8") as f:
             lyrics = f.read()
-
         with open(translated_lyrics_file, "r", encoding="utf-8") as f:
             translated_lyrics = f.read()
 
-        # If less than 120 points remain on the page,
+        # If less than so many points remain on the page,
         # start this song on a new page.
         contents.append(CondPageBreak(120))
 
@@ -514,19 +516,13 @@ def generate_translations_pages(songs):
         contents.append(Paragraph(f"{number} {prettified_name}", title_style))
 
         # Original lyrics
-        contents.append(Paragraph(lyrics, lyrics_style))
-        contents.append(Spacer(1, 10))
+        # contents.append(Paragraph(lyrics, body_style))
+        # contents.append(Spacer(1, 10))
 
         # Translated lyrics
-        contents.append(Paragraph(translated_lyrics, lyrics_style))
+        contents.append(Paragraph(translated_lyrics, body_style))
         contents.append(Spacer(1, 20))
-
-        # Start each song on a new page.
-        # if i < len(songs) - 1:
-        #     contents.append(PageBreak())
-
     pdf.build(contents)
-    print("Built pdf translations.pdf")
 
 
 def generate_index(songs, index_path, language=None, frontpage_dir=None, should_translate_lyrics=False):
@@ -540,9 +536,8 @@ def generate_index(songs, index_path, language=None, frontpage_dir=None, should_
     some_song_changed = export_missing_pdfs(songs)
     some_song_changed |= number_songs(songs)
     some_translated_lyrics_changed = export_missing_audio(songs, should_translate_lyrics)
-    # TODO put back if
-    # if should_translate_lyrics and some_translated_lyrics_changed:
-    generate_translations_pages(songs)
+    if should_translate_lyrics and some_translated_lyrics_changed:
+        generate_translations_pages(songs)
     index_dir, _ = os.path.split(index_path)
     if not os.path.exists(index_dir):
         os.makedirs(index_dir)
@@ -550,7 +545,7 @@ def generate_index(songs, index_path, language=None, frontpage_dir=None, should_
     songbook_definition_script = sys.argv[0]
     songbook_definition_changed = not uptodate_from_source(master_file, songbook_definition_script)
     if some_song_changed or songbook_definition_changed:
-        create_master_pdfs(songs, index_dir, frontpage_dir)
+        create_master_pdfs(songs, index_dir, frontpage_dir, should_translate_lyrics)
         with open(index_path, "w", encoding="utf-8") as file:
             file.write(PREAMBLE)
             songs = sorted(
@@ -621,27 +616,59 @@ def highest_version_in(frontpage_dir, variant):
     return highest_version
 
 
+def split_into_columns(index_lines, max_per_column):
+    """Split the entries into groups of max_per_column items. The final group may have less."""
+    return [index_lines[i:i + 37] for i in range(0, len(index_lines), 37)]
+
+
+def pair_lists(left, right):
+    """Pair up lists of songs by entry and number, the right may run out before the left."""
+    return [
+            [l.entry, l.number, r.entry, r.number] if r is not None else [l.entry, l.number, "", ""]
+            for l,r  in zip_longest(left, right)
+    ]
+
+
 def create_index_page(s):
     """Create index pdf with song titles and first lines."""
-    print("===INDEX OF TITLES AND 1ST LINES===")
     index_lines = get_index_of_titles_and_first_lines(s)
-    with open("temp_index_page.txt", "w", encoding="utf-8") as file:
-        for song in index_lines:
-            file.write(f"{song.entry:<42}{str(song.number):>4}\n")
-            print(f"{song.entry:<42}{str(song.number):>4}")
-    subprocess.check_output(["soffice", "--convert-to", "pdf", "./temp_index_page.txt"])
-    os.remove("temp_index_page.txt")
+    pdf, _, _ = get_pdf_styles("temp_index_page.pdf")
+    contents = []
+    columns = split_into_columns(index_lines, 37)
+    print("===INDEX OF TITLES AND 1ST LINES===")
+    for song in index_lines:
+        print(f"{song.entry:<42}{str(song.number):>4}")
     print("===================================")
+    for i in range(0, len(columns), 2):
+        left_column = columns[i]
+        right_column = columns[i + 1] if i + 1 < len(columns) else []
+        table_entries = pair_lists(left_column, right_column)
+        table = Table(
+            table_entries,
+            colWidths=[180, 30, 180, 30],
+        )
+        table.setStyle(TableStyle([
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ]))
+        contents.append(table)
+    pdf.build(contents)
 
 
-def create_master_pdfs(s, index_dir, frontpage_dir):
+def create_master_pdfs(s, index_dir, frontpage_dir, should_translate_lyrics):
     """Create both variant master pdfs."""
     create_index_page(s)
     for suffix in VARIANT_SUFFIXES:
-        create_master_pdf(s, index_dir, frontpage_dir, suffix)
+        create_master_pdf(s, index_dir, frontpage_dir, suffix, should_translate_lyrics)
+    os.remove("temp_index_page.pdf")
+    if should_translate_lyrics:
+        os.remove("temp_lyrics_translations.pdf")
 
 
-def create_master_pdf(s, index_dir, frontpage_dir, suffix):
+def create_master_pdf(s, index_dir, frontpage_dir, suffix, should_translate_lyrics):
     """Collect the songs' pdfs into an all.pdf and all_rond.pdf."""
     parts = []
     if frontpage_dir:
@@ -655,6 +682,8 @@ def create_master_pdf(s, index_dir, frontpage_dir, suffix):
         number = song["number"]
         song_id = get_song_id(song)
         parts.append(f"{SONG_INDEX}{song_id}/{number}_{name}{suffix}.pdf")
+    if should_translate_lyrics:
+        parts.append("temp_lyrics_translations.pdf")
     parts.append("temp_index_page.pdf")
     master_file = os.path.join(index_dir, f"all{suffix}.pdf")
     subprocess.check_output(["pdftk", *parts, "cat", "output", master_file])
