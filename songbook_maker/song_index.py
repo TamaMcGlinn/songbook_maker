@@ -14,6 +14,12 @@ import sys
 import unicodedata
 from collections import namedtuple
 
+import requests
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import (CondPageBreak, PageBreak, Paragraph,
+                                Preformatted, SimpleDocTemplate, Spacer)
 from songbook_maker.export_songs import (export_audio, export_lyrics,
                                          export_pdf, export_pdf_round,
                                          replace_extension)
@@ -318,17 +324,49 @@ def export_missing_pdfs(s):
     return something_was_updated
 
 
-def export_missing_audio(s):
+def translate_lyrics(input_filename, output_filename):
+    """Translate input file to English into output_file."""
+    with open(input_filename, mode="r", encoding="utf-8") as input_file:
+        lyrics = input_file.read()
+    url = "https://api-free.deepl.com/v2/translate"
+    headers = {
+        "Authorization": f"DeepL-Auth-Key {os.environ['DEEPL_AUTH_KEY']}",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    params = {
+        "text": lyrics,
+        "target_lang": "EN",
+    }
+
+    response = requests.post(url, headers=headers, data=params)
+    response_json = response.json()
+    # for debugging
+    # print(response_json)
+    translated_text = response_json["translations"][0]["text"]
+    with open(output_filename, mode="w", encoding="utf-8") as output_file:
+        output_file.write(translated_text)
+
+def export_missing_audio(s, should_translate_lyrics=False):
     """Generate audio where missing."""
+    some_translated_lyrics_changed = False
     for song in s:
         musescore_file = get_musescorefile(get_song_id(song))
-        if not lyrics_file_uptodate(musescore_file):
+        lyrics_filename = replace_extension(musescore_file, ".txt")
+        translated_lyrics_filename = replace_extension(musescore_file, "_translated.txt")
+        if not uptodate_from_source(lyrics_filename, musescore_file):
             print(f"Extracting lyrics from {musescore_file}")
             export_lyrics(musescore_file)
+        if should_translate_lyrics:
+            if not uptodate_from_source(translated_lyrics_filename, lyrics_filename):
+                print(f"Translating {lyrics_filename}")
+                translate_lyrics(lyrics_filename, translated_lyrics_filename)
+                some_translated_lyrics_changed = True
         melody_musescore_file = get_melody_musescorefile(song)
         if not all_voices_uptodate(song, melody_musescore_file):
             print(f"Exporting audio from {melody_musescore_file}")
             export_audio(melody_musescore_file)
+    return some_translated_lyrics_changed
 
 
 def get_lyrics(musescore_file):
@@ -424,7 +462,74 @@ def apply_language(songs, new_language):
         s["language"] = new_language
 
 
-def generate_index(songs, index_path, language=None, frontpage_dir=None):
+def generate_translations_pages(songs):
+    """Generate a PDF with the original and translated lyrics for each song."""
+    pdf = SimpleDocTemplate(
+        "translations.pdf",
+        pagesize=letter,
+        rightMargin=50,
+        leftMargin=50,
+        topMargin=50,
+        bottomMargin=50,
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        "SongTitle",
+        parent=styles["Heading1"],
+        alignment=TA_CENTER,
+        spaceAfter=20,
+    )
+
+    lyrics_style = ParagraphStyle(
+        "Lyrics",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=11,
+        leading=15,
+    )
+
+    contents = []
+
+    for song in songs:
+        name = song["name"]
+        prettified_name = prettify_name(name)
+        song_id = get_song_id(song)
+        number = song["number"]
+        lyrics_file = f"{SONG_INDEX}{song_id}/{name}.txt"
+        translated_lyrics_file = f"{SONG_INDEX}{song_id}/{name}_translated.txt"
+
+        with open(lyrics_file, "r", encoding="utf-8") as f:
+            lyrics = f.read()
+
+        with open(translated_lyrics_file, "r", encoding="utf-8") as f:
+            translated_lyrics = f.read()
+
+        # If less than 120 points remain on the page,
+        # start this song on a new page.
+        contents.append(CondPageBreak(120))
+
+        # Song title
+        contents.append(Paragraph(f"{number} {prettified_name}", title_style))
+
+        # Original lyrics
+        contents.append(Paragraph(lyrics, lyrics_style))
+        contents.append(Spacer(1, 10))
+
+        # Translated lyrics
+        contents.append(Paragraph(translated_lyrics, lyrics_style))
+        contents.append(Spacer(1, 20))
+
+        # Start each song on a new page.
+        # if i < len(songs) - 1:
+        #     contents.append(PageBreak())
+
+    pdf.build(contents)
+    print("Built pdf translations.pdf")
+
+
+def generate_index(songs, index_path, language=None, frontpage_dir=None, should_translate_lyrics=False):
     """Generate index html and pdf.
 
     also ensure no generated files are missing.
@@ -434,7 +539,10 @@ def generate_index(songs, index_path, language=None, frontpage_dir=None):
     read_song_collection_properties()
     some_song_changed = export_missing_pdfs(songs)
     some_song_changed |= number_songs(songs)
-    export_missing_audio(songs)
+    some_translated_lyrics_changed = export_missing_audio(songs, should_translate_lyrics)
+    # TODO put back if
+    # if should_translate_lyrics and some_translated_lyrics_changed:
+    generate_translations_pages(songs)
     index_dir, _ = os.path.split(index_path)
     if not os.path.exists(index_dir):
         os.makedirs(index_dir)
