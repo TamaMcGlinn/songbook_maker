@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import unicodedata
+import xml.etree.ElementTree as ET
 from collections import namedtuple
 from enum import Enum
 from itertools import zip_longest
@@ -191,6 +192,18 @@ def write_audio(file, song, voice):
     file.write(f'  <source src="{audio_src}" type="audio/mpeg">\n')
     file.write("  Your browser does not support the audio element.\n")
     file.write("</audio>\n")
+
+
+def read_title(filename):
+    """Read song title from mscx file."""
+    tree = ET.parse(filename)
+    root = tree.getroot()
+    titles = [
+        text_elem.find("text")
+        for text_elem in root.iter("Text")
+        if text_elem.findtext("style") == "Title"
+    ]
+    return "".join(titles[0].itertext())
 
 
 def prettify_name(song_name):
@@ -450,17 +463,19 @@ def sanitize_for_comparison(text):
             "prayr",
             "prayer",  # make pray'r in lyrics equivalent to prayer in title
         )
-        .replace(" ", " ")
-    )  # replace non-breaking spaces with regular
+        .replace(" ", " ")  # replace non-breaking spaces with regular
+        .lstrip() # remove leading spaces (caused by leading punctuation)
+    )
 
 
 def get_index_of_titles_and_first_lines(songlist):
     """Get list of titles or first lines, paired with song number."""
     index = []
     for song in songlist:
-        prettified_name = prettify_name(song["name"])
+        musescore_file = get_musescorefile(get_song_id(song))
+        song_title = read_title(musescore_file)
         song_number = song["number"]
-        entry = IndexEntry(prettified_name, song_number, IndexEntryType.TITLE)
+        entry = IndexEntry(song_title, song_number, IndexEntryType.TITLE)
         bisect.insort(index, entry, key=lambda x: sanitize_for_comparison(x.entry))
         first_line = get_first_line_of_lyrics(song)
         # if the first line is basically just the title (barring capitalization & punctuation),
@@ -469,7 +484,7 @@ def get_index_of_titles_and_first_lines(songlist):
         # Wie K In Nachtegael                       2363
         # Wie'k in nachtegael dan soe ik            2363
         comparing_first_line = sanitize_for_comparison(first_line)
-        comparing_title = sanitize_for_comparison(prettified_name)
+        comparing_title = sanitize_for_comparison(song_title)
         if not comparing_first_line.startswith(comparing_title):
             line_entry = IndexEntry(first_line, song_number, IndexEntryType.FIRST_LINE)
             bisect.insort(index, line_entry, key=lambda x: sanitize_for_comparison(x.entry))
