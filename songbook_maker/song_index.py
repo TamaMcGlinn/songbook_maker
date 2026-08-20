@@ -16,9 +16,10 @@ from collections import namedtuple
 from enum import Enum
 from itertools import zip_longest
 
+import PyPDF2
 import requests
 from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import (CondPageBreak, PageBreak, Paragraph,
                                 Preformatted, SimpleDocTemplate, Spacer, Table,
@@ -485,7 +486,7 @@ def get_pdf_styles(filename):
     """Get a pdf template and styles for title and body."""
     pdf = SimpleDocTemplate(
         filename,
-        pagesize=letter,
+        pagesize=A4,
         rightMargin=50,
         leftMargin=50,
         topMargin=50,
@@ -697,6 +698,14 @@ def create_master_pdfs(s, index_dir, frontpage_dir, should_translate_lyrics):
         os.remove("temp_lyrics_translations.pdf")
 
 
+def get_pdf_page_size(filename):
+    with open(filename, 'rb') as file:
+        pdf = PyPDF2.PdfFileReader(file)
+        page = pdf.getPage(0)
+        size = (page.mediaBox.getWidth(), page.mediaBox.getHeight())
+        return size
+
+
 def create_master_pdf(s, index_dir, frontpage_dir, suffix, should_translate_lyrics):
     """Collect the songs' pdfs into an all.pdf and all_rond.pdf."""
     parts = []
@@ -714,5 +723,10 @@ def create_master_pdf(s, index_dir, frontpage_dir, suffix, should_translate_lyri
     if should_translate_lyrics:
         parts.append("temp_lyrics_translations.pdf")
     parts.append("temp_index_page.pdf")
+    a4_size = (595, 842)
+    for p in parts:
+        page_size = get_pdf_page_size(p)
+        if abs(page_size[0] - a4_size[0]) >= 1 or abs(page_size[1] - a4_size[1]) >= 1:
+            print(f"Warning: {p} page size is not A4 but {page_size}")
     master_file = os.path.join(index_dir, f"all{suffix}.pdf")
     subprocess.check_output(["pdftk", *parts, "cat", "output", master_file])
