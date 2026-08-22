@@ -25,6 +25,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import (CondPageBreak, PageBreak, Paragraph,
                                 Preformatted, SimpleDocTemplate, Spacer, Table,
                                 TableStyle)
+
 from songbook_maker.export_songs import (export_audio, export_lyrics,
                                          export_pdf, export_pdf_round,
                                          replace_extension)
@@ -206,23 +207,10 @@ def read_title(filename):
     return "".join(titles[0].itertext())
 
 
-def prettify_name(song_name):
-    """Reconstruct song name from filename.
-
-    The filename cannot contain punctuation,
-    nor does it have the correct capitalization.
-    """
-    song_name = song_name.capitalize()
-    song_name = re.sub(r"_(\w)", lambda x: " " + x.group(1).upper(), song_name)
-    song_name = (
-        song_name.replace("I Ll", "I'll").replace("We Ll", "We'll").replace("T ", "'t ")
-    )
-    return song_name
-
-
-def prettify_and_shorten_name(song_name):
-    """Shorten and prettify name to fit in HTML title element."""
-    song_name = prettify_name(song_name)
+def get_short_name(song):
+    """Get name to fit in HTML title element."""
+    musescore_file = get_musescorefile(get_song_id(song))
+    song_name = read_title(musescore_file)
     if len(song_name) > 20:
         song_name = song_name[:19] + "…"
     return song_name
@@ -242,7 +230,7 @@ def write_song_to_html(file, song):
     file.write("    <td>\n")
     file.write("      <table>\n")
     file.write("        <tr><td>\n")
-    file.write(f"          <span>{number} {prettify_and_shorten_name(name)}</span>\n")
+    file.write(f"          <span>{number} {get_short_name(song)}</span>\n")
     file.write("        </td></tr>\n")
     file.write("        <tr><td>\n")
     file.write(
@@ -373,13 +361,13 @@ def export_missing_audio(s, should_translate_lyrics=False):
     """Generate audio where missing."""
     some_translated_lyrics_changed = False
     for song in s:
-        name = song["name"]
-        prettified_name = prettify_name(name)
+        musescore_file = get_musescorefile(get_song_id(song))
+        song_title = read_title(musescore_file)
         musescore_file = get_musescorefile(get_song_id(song))
         lyrics_filename = replace_extension(musescore_file, ".txt")
         translated_title_filename = replace_extension(musescore_file, "_title_translated.txt")
         if not uptodate_from_source(translated_title_filename, musescore_file):
-            translated_title = translate_to_english(prettified_name)
+            translated_title = translate_to_english(song_title)
             with open(translated_title_filename, mode="w", encoding="utf-8") as output_file:
                 output_file.write(translated_title)
         translated_lyrics_filename = replace_extension(musescore_file, "_translated.txt")
