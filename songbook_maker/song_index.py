@@ -25,7 +25,6 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import (CondPageBreak, PageBreak, Paragraph,
                                 Preformatted, SimpleDocTemplate, Spacer, Table,
                                 TableStyle)
-
 from songbook_maker.export_songs import (export_audio, export_lyrics,
                                          export_pdf, export_pdf_round,
                                          replace_extension)
@@ -563,7 +562,6 @@ def generate_index(songs, index_path, language=None, frontpage_dir=None, should_
         apply_language(songs, language)
     read_song_collection_properties()
     some_song_changed = export_missing_pdfs(songs)
-    some_song_changed |= number_songs(songs)
     export_missing_audio(songs, should_translate_lyrics)
     if should_translate_lyrics:
         generate_translations_pages(songs)
@@ -599,12 +597,13 @@ def generate_index(songs, index_path, language=None, frontpage_dir=None, should_
             file.write(POSTFIX)
 
 
-def number_songs(s):
+def number_songs(s, preamble_page_count=0):
     """Generate numbered pdfs where they are missing or not up to date.
 
     Returns True if some file was updated, False otherwise.
     """
     something_was_updated = False
+    page_count = preamble_page_count
     for song in s:
         name = song["name"]
         song_id = get_song_id(song)
@@ -614,13 +613,14 @@ def number_songs(s):
             unnumbered_file = f"{SONG_INDEX}{song_id}/{name}{suffix}.pdf"
             if not uptodate_from_source(numbered_file, unnumbered_file):
                 if os.path.isfile(unnumbered_file):
-                    print(f"Generating {numbered_file}...\n")
+                    position = "-topright" if page_count % 2 == 0 else "-topleft"
+                    print(f"Generating {numbered_file} with number at {position}...\n")
                     subprocess.check_output(
                         [
                             "cpdf",
                             "-add-text",
                             str(number),
-                            "-topright",
+                            position,
                             "50",
                             "-font",
                             "Helvetica",
@@ -632,6 +632,7 @@ def number_songs(s):
                         ]
                     )
                     something_was_updated = True
+        page_count += get_pdf_page_count(f"{SONG_INDEX}{song_id}/{name}.pdf")
     return something_was_updated
 
 
@@ -678,7 +679,7 @@ def create_index_page(s):
         table_entries = pair_lists(left_column, right_column, italic_style)
         table = Table(
             table_entries,
-            colWidths=[180, 30, 180, 30],
+            colWidths=[220, 30, 220, 30],
         )
         table.setStyle(TableStyle([
             ("ALIGN", (1, 0), (1, -1), "RIGHT"),
@@ -709,8 +710,15 @@ def get_pdf_page_size(filename):
         return size
 
 
+def get_pdf_page_count(filename):
+    with open(filename, 'rb') as file:
+        pdf = PyPDF2.PdfFileReader(file)
+        return pdf.getNumPages()
+
+
 def create_master_pdf(s, index_dir, frontpage_dir, suffix, should_translate_lyrics):
     """Collect the songs' pdfs into an all.pdf and all_rond.pdf."""
+    page_count = 0
     parts = []
     if frontpage_dir:
         frontpage = highest_version_in(frontpage_dir, suffix)
@@ -718,6 +726,8 @@ def create_master_pdf(s, index_dir, frontpage_dir, suffix, should_translate_lyri
             frontpage = highest_version_in(frontpage_dir, "")
         if frontpage:
             parts.append(frontpage)
+            page_count += get_pdf_page_count(frontpage)
+    number_songs(s, page_count)
     for song in s:
         name = song["name"]
         number = song["number"]
