@@ -5,8 +5,6 @@ import re
 import subprocess
 import sys
 
-MUSESCORE_BINARY = "musescore"
-
 
 def find_musescore_files(songs_path):
     """Return all musescore files in the given dir."""
@@ -147,7 +145,7 @@ def trim_silent_endings(musescore_file):
                 # )
 
 
-def export(musescore_file, extension, master, parts):
+def export(musescore_file, extension, master, parts, musescore_bin="musescore"):
     """Export the given musescore file (audio / lyrics, etc)."""
     file_dir, file_name = os.path.split(musescore_file)
     file_base_name = file_name.rsplit(".", 1)[0]
@@ -165,15 +163,15 @@ def export(musescore_file, extension, master, parts):
         "  }"
         "]"
     )
-    export_job(job)
+    export_job(job, musescore_bin)
 
 
-def export_job(job_definition):
+def export_job(job_definition, musescore_bin="musescore"):
     """Use MS to execute given job, specified as list of dicts with in, out keys."""
     with open("job.json", "w", encoding="utf-8") as jobfile:
         jobfile.write(job_definition)
     subprocess.check_output(
-        [MUSESCORE_BINARY, "-j", "job.json"], stderr=subprocess.DEVNULL
+        [musescore_bin, "-j", "job.json"], stderr=subprocess.DEVNULL
     )
     os.remove("job.json")
 

@@ -25,6 +25,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import (CondPageBreak, PageBreak, Paragraph,
                                 Preformatted, SimpleDocTemplate, Spacer, Table,
                                 TableStyle)
+
 from songbook_maker.export_songs import (export_audio, export_lyrics,
                                          export_pdf, export_pdf_round,
                                          replace_extension)
@@ -203,7 +204,9 @@ def read_title(filename):
         for text_elem in root.iter("Text")
         if text_elem.findtext("style") == "Title"
     ]
-    return "".join(titles[0].itertext())
+    raw_title = "".join(titles[0].itertext())
+    # the british songs, such as praise_to_the_lord have leading whitespace and newlines
+    return raw_title.lstrip()
 
 
 def get_short_name(song):
@@ -409,6 +412,8 @@ def get_first_line_of(lyrics):
     """Find the first line of the lyrics."""
     min_firstline = 20
     max_firstline = 40
+    if len(lyrics) <= max_firstline:
+        return lyrics
     # search backwards from max to min for punctuation
     for i in range(max_firstline, min_firstline, -1):
         if lyrics[i] in [".", ",", ";", ":", "!", "?"]:
