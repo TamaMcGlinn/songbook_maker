@@ -9,6 +9,7 @@ to the master pdf files, containing all the songs (for 2 variants).
 import bisect
 import os
 import re
+import string
 import subprocess
 import sys
 import unicodedata
@@ -22,6 +23,8 @@ import requests
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (CondPageBreak, PageBreak, Paragraph,
                                 Preformatted, SimpleDocTemplate, Spacer, Table,
                                 TableStyle)
@@ -395,16 +398,16 @@ def get_lyrics(musescore_file):
         return file.read()
 
 
-def remove_leading_numbers_and_spaces(lyrics: str):
-    """Remove leading numbers and spaces."""
-    return lyrics.lstrip("1234567890. ").lstrip()
+def remove_leading_non_letters(lyrics: str):
+    """Remove leading characters that are not letters."""
+    return lyrics.lstrip().translate(str.maketrans('', '', string.punctuation + string.digits))
 
 
 def get_first_line_of_lyrics(song):
     """Get first line of lyrics for the song."""
     song_id = get_song_id(song)
     musescore_file = get_musescorefile(song_id)
-    lyrics = remove_leading_numbers_and_spaces(get_lyrics(musescore_file))
+    lyrics = remove_leading_non_letters(get_lyrics(musescore_file))
     return get_first_line_of(lyrics)
 
 
@@ -491,6 +494,13 @@ def apply_language(songs, new_language):
 
 def get_pdf_styles(filename):
     """Get a pdf template and styles for title and body."""
+    pdfmetrics.registerFont(
+        TTFont("NotoSans", "NotoSans-Regular.ttf")
+    )
+    pdfmetrics.registerFont(
+        TTFont("NotoSansItalic", "NotoSans-Italic.ttf")
+    )
+
     pdf = SimpleDocTemplate(
         filename,
         pagesize=A4,
@@ -502,6 +512,7 @@ def get_pdf_styles(filename):
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         "SongTitle",
+        fontName="NotoSans",
         parent=styles["Heading1"],
         alignment=TA_CENTER,
         spaceAfter=20,
@@ -509,13 +520,13 @@ def get_pdf_styles(filename):
     body_style = ParagraphStyle(
         "Lyrics",
         parent=styles["BodyText"],
-        fontName="Helvetica",
+        fontName="NotoSans",
         fontSize=10,
         leading=15,
     )
     italic_style = ParagraphStyle(
         "ItalicPre",
-        fontName="Helvetica-Oblique",
+        fontName="NotoSansItalic",
         fontSize=10,
         leading=15,
     )
@@ -656,12 +667,12 @@ def split_into_columns(index_lines, max_per_column):
     return [index_lines[i:i + max_per_column] for i in range(0, len(index_lines), max_per_column)]
 
 
-def pair_lists(left, right, italic_style):
+def pair_lists(left, right, title_style, italic_style):
     """Pair up lists of songs by entry (with first lines italic, titles not) and number, the right may run out before the left."""
     def f(e):
         if e.type == IndexEntryType.FIRST_LINE:
             return Preformatted(e.entry, italic_style)
-        return e.entry
+        return Preformatted(e.entry, title_style)
     return [
            [f(l), l.number, f(r), r.number] if r is not None else [f(l), l.number, "", ""]
            for l,r  in zip_longest(left, right)
@@ -671,7 +682,7 @@ def pair_lists(left, right, italic_style):
 def create_index_page(s):
     """Create index pdf with song titles and first lines."""
     index_lines = get_index_of_titles_and_first_lines(s)
-    pdf, _, _, italic_style = get_pdf_styles("temp_index_page.pdf")
+    pdf, _, body_style, italic_style = get_pdf_styles("temp_index_page.pdf")
     contents = []
     columns = split_into_columns(index_lines, 36)
     print("===INDEX OF TITLES AND 1ST LINES===")
@@ -681,7 +692,7 @@ def create_index_page(s):
     for i in range(0, len(columns), 2):
         left_column = columns[i]
         right_column = columns[i + 1] if i + 1 < len(columns) else []
-        table_entries = pair_lists(left_column, right_column, italic_style)
+        table_entries = pair_lists(left_column, right_column, body_style, italic_style)
         table = Table(
             table_entries,
             colWidths=[220, 30, 220, 30],
