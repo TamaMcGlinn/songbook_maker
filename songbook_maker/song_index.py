@@ -643,6 +643,7 @@ def number_songs(s, preamble_page_count=0):
                             "-font-size",
                             "26",
                             unnumbered_file,
+                            "1",
                             "-o",
                             numbered_file,
                         ]
