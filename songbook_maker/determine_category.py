@@ -54,22 +54,24 @@ def classify_hymn(title, lyrics, categories=None):
 
     return response.output_text.strip()
 
-def categorize(musescore_file):
+def categorize(musescore_file, categories):
     lyrics_filename = replace_extension(musescore_file, ".txt")
     if not uptodate_from_source(lyrics_filename, musescore_file):
         export_lyrics(musescore_file)
     lyrics = Path(lyrics_filename).read_text(encoding="utf-8").strip()
     title = read_title(musescore_file)
-    return classify_hymn(title, lyrics)
+    return classify_hymn(title, lyrics, categories)
 
 
 def read_categories(category_file):
+    """Read categories file, return dict."""
     with open(category_file, "r", encoding="utf-8") as file:
         category_contents = file.read()
     return read_back_values(category_contents)
 
 
 def read_back_values(value_str):
+    """Read dict with each line containing key: value value2 etc."""
     lines = value_str.strip().split('\n')
     categories = {}
     for line in lines:
@@ -113,7 +115,7 @@ def main() -> None:
         if category is not None:
             continue
         print(f"Analyzing song text and title for {song_id} to determine category...")
-        category = categorize(file)
+        category = categorize(file, categories)
         print(f"{song_id} added to category: {category}")
         categorized_something_new = True
         if category in categories:
