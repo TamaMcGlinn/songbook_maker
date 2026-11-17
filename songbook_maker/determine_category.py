@@ -29,14 +29,10 @@ CATEGORIES = [
 def classify_hymn(title, lyrics, categories=None):
     client = OpenAI()
 
-    if categories is None:
-        category_lines = "\n".join(CATEGORIES)
-        category_instruction = f"\n\nChoose a category such as:\n{category_lines}\n\n"
-        category_instruction += "The category name should be in the same language as "
-        category_instruction += "the song title and lyrics."
-    else:
-        category_lines = "\n".join(categories)
-        category_instruction = f"\n\nChoose a category from:\n{category_lines}\n\n"
+    category_lines = "\n".join(categories or CATEGORIES)
+    category_instruction = f"\n\nChoose a category such as:\n{category_lines}\n\n"
+    category_instruction += "The category name must be in the same language as "
+    category_instruction += "the song title and lyrics."
     response = client.responses.create(
         model=MODEL,
         instructions=(
